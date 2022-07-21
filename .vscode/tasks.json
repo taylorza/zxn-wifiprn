@@ -1,0 +1,55 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build",
+            "type": "shell",
+            "command": "../emulator/sjasmplus",
+            "args": [
+                "src/wifiprn_drv.asm",
+                "--zxnext=cspect",
+                "--inc=inc",
+                "--msg=war",
+                "--fullpath",
+                "--sym=wifiprn.sym",
+                "--sld=wifiprn.sld",
+                "--lst=wifiprn.lst"
+            ],
+            "problemMatcher": {
+                "fileLocation": [
+                    "relative",
+                    "${workspaceRoot}"
+                ],
+                "pattern": {
+                    "regexp": "^(.*)\\((\\d+)\\):\\s+(warning|error):\\s+(.*)$",
+                    "file": 1,
+                    "line": 2,
+                    "severity": 3,
+                    "message": 4
+                }
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "Update SDCard",
+            "type": "shell",
+            "command": "../emulator/hdfmonkey put ../sdcard/tbblue-dev.sd wifiprn.drv",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "Build"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Launch CSpect",
+            "type": "shell",
+            "command": "d:/temp/nextdev/emulator/cspect -r -w2 -brk -zxnext -nextrom -mmc=d:/temp/nextdev/sdcard/tbblue-dev.sd",
+            "dependsOrder": "sequence",
+            "dependsOn": [],
+            "problemMatcher": []
+        }
+    ]
+}
