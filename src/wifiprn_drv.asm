@@ -140,7 +140,7 @@ output_char:
 get_output_status:  
         ld bc, $ffff            ; Assume not busy
         ld a, (printState)
-        cp a, STATE_IDLE
+        or a
         ret z                   
         inc bc                  ; Printer is busy
         ret
@@ -160,6 +160,7 @@ open_channel:
         jr nz, .getIP
         dec e
         jr z, returnError      ; After skipping whitespace we have 0 length
+        jr .skipws
 
 .getIP
         ld a, e                 ; Remaining IP characters
@@ -178,6 +179,7 @@ open_channel:
 ;------------------------------------------------------------------------------
 ; Call ID - $fa
 close_channel:
+        DBG_BREAK
         ld hl, printerIP
         ld (hl), $80            ; Invalidate the IP address
         xor a                   ; A=0, CY=0 for no error
@@ -192,8 +194,24 @@ returnError:
         scf
         ret
 connectPrinter:
-        call uartDrain
+        ; Select ESP UART
+        ld bc, $153b            ; UART Select
+        or a                    ; Select the ESP UART
+        out (c), a
 
+        ; Drain Rx Fifo
+        dec b
+        dec b                   ; BC = $133b Tx/Status port
+.drain
+        in a, (c)
+        rrca
+        jr nc, .connect
+        inc b                   ; Rx Port ($143b)
+        in a, (c)
+        dec b                   ; Status port
+        jr .drain
+
+.connect
         ld hl, ATE0
         call sendCommand
 
@@ -262,7 +280,7 @@ parseResponse:
         call uartRead                   ; Check lead character
         CurrentIs 'O', .parseOK         ; Possibly 'OK'
         CurrentIs 'E', .parseERROR      ; Possibly 'ERROR'
-        CurrentIs 'F', .parseFAIL       ; Possibly 'FAIL'
+        ;CurrentIs 'F', .parseFAIL       ; Possibly 'FAIL' (excluded to save space see note below)
         jr parseResponse
 
 .parseOK    ; Follow set for 'OK'
@@ -278,13 +296,13 @@ parseResponse:
         NextIsNot 'O', parseResponse
         NextIsNot 'R', parseResponse
         NextIsNot CR, parseResponse
-        jr .error
-
-.parseFAIL  ; Follow set for 'FAIL'
-        NextIsNot 'A', parseResponse
-        NextIsNot 'I', parseResponse
-        NextIsNot 'L', parseResponse
-        NextIsNot CR, parseResponse
+;        jr .error
+;
+;.parseFAIL  ; Follow set for 'FAIL'    ; Non of the commands used result in FAIL,
+;        NextIsNot 'A', parseResponse   ; so I can save some space by not checking this
+;        NextIsNot 'I', parseResponse
+;        NextIsNot 'L', parseResponse
+;        NextIsNot CR, parseResponse
 ;            |
 ;            | Fallthrough to .error
 ;            V
@@ -343,19 +361,6 @@ uartRead:
         inc b                   ; Rx port ($143b)
         in a, (c)               ; Read from UART
         ret
-
-;------------------------------------------------------------------------------
-; uartDrain - Read all the data in the UART buffer
-uartDrain:
-        ld bc, $133b            ; Status port (Tx/Status)
-.read
-        in a, (c)
-        rrca
-        ret nc
-        inc b                   ; Rx Port ($143b)
-        in a, (c)
-        dec b                   ; Status port
-        jr .read
 
 CR                      equ $0d
 LF                      equ $0a
