@@ -58,3 +58,4 @@ dkms.conf
 *.nex
 *.sld
 *.sym
+*.drv
