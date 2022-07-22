@@ -149,21 +149,17 @@ get_output_status:
 ; Call ID - $f9
 open_channel:
         ; Parse IP address
-        ld a, e
-        or d
-        jr z, returnError       ; Error on zero length string
-        
-; Copy IP to driver memory buffer
-        and $0f                 ; Mask to limit 0..15
-        ld b, 0
-        ld c, a                 ; BC = length
-        ld de, printerIP        ; DE = Destination for the IP address
-        ldir                    ; Block copy from HL to DE
-        
-        dec de                  ; Move back to last character
-        ld a, (de)              ; Load the character
-        or $80                  ; Set high bit to mark the End Of String
-        ld (de), a              ; Store character
+        ld a,e                  ; check if E is 1..15 (ignores D completely, IP string should be short)
+        dec a                   ; 0..14 is valid range
+        add a,-15               ; CF = 1 for 15..255, CF = 0 for valid range
+        jr c, returnError
+        ld b,0
+        ld c,e
+        ld de, printerIP
+        ldir
+        ex de,hl
+        dec hl
+        set 7,(hl)
         ret
 
 ;------------------------------------------------------------------------------
