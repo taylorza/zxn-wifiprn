@@ -153,17 +153,7 @@ open_channel:
         or d
         jr z, returnError       ; Error on zero length string
         
-        ; skip white space
-.skipws    
-        ld a, (hl)
-        cp 32
-        jr nz, .getIP
-        dec e
-        jr z, returnError      ; After skipping whitespace we have 0 length
-        jr .skipws
-
-.getIP
-        ld a, e                 ; Remaining IP characters
+; Copy IP to driver memory buffer
         and $0f                 ; Mask to limit 0..15
         ld b, 0
         ld c, a                 ; BC = length
