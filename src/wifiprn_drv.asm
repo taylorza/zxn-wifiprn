@@ -179,7 +179,6 @@ open_channel:
 ;------------------------------------------------------------------------------
 ; Call ID - $fa
 close_channel:
-        DBG_BREAK
         ld hl, printerIP
         ld (hl), $80            ; Invalidate the IP address
         xor a                   ; A=0, CY=0 for no error
