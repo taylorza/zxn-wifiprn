@@ -49,8 +49,8 @@ im1_entry:
         
 ;-- Teardown state handlers --                  
 .endJob
-        ld hl, JOB_END
-        call uartSendZ
+        ld a, FORMFEED
+        call uartSend
         ld a, STATE_ENDPRINT         
         jr .nextState
 
@@ -224,9 +224,6 @@ connectPrinter:
         call sentATCIP
         ret c
 
-        ld hl, JOB_START
-        call uartSendZ
-
         ld a, STATE_PRINTING
         ld (printState), a
         ret
@@ -351,6 +348,8 @@ uartRead:
 CR                      equ $0d
 LF                      equ $0a
 
+FORMFEED                equ $0c
+
 CRLF                    db CR, LF | $80
 ATE0                    db 'ATE', '0' | $80
 PRE_ATCIP               db 'AT+CI', 'P' | $80
@@ -360,9 +359,6 @@ CMD_TCPDISCONNECT       db 'CLOS', 'E' | $80
 CMD_PASSTHROUGH         db 'MODE=', '1' | $80
 CMD_SEND                db 'SEN', 'D' | $80
 CMD_ENDPASSTHROUGH      db '++', '+' | $80
-
-JOB_END                 db $0c              ; JOB_END = $0c,$1b, 'E' | $80 => use JOB_START for suffix
-JOB_START               db $1b,'E' | $80
 
 activityCounter         db 0
 printState              db STATE_IDLE
