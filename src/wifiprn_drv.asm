@@ -184,11 +184,6 @@ connectPrinter:
         xor a                   ; Select the ESP UART
         out (c), a
 
-        ; Reset Rx/Tx fifo
-        inc b                   ; UART Frame
-        ld a, %10011000                 
-        out (c), a
-
         ; Drain Rx Fifo
         dec b
         dec b
