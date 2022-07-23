@@ -181,10 +181,16 @@ returnError:
 connectPrinter:
         ; Select ESP UART
         ld bc, $153b            ; UART Select
-        or a                    ; Select the ESP UART
+        xor a                   ; Select the ESP UART
+        out (c), a
+
+        ; Reset Rx/Tx fifo
+        inc b                   ; UART Frame
+        ld a, %10011000                 
         out (c), a
 
         ; Drain Rx Fifo
+        dec b
         dec b
         dec b                   ; BC = $133b Tx/Status port
 .drain
