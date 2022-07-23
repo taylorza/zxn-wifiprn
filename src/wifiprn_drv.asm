@@ -186,7 +186,6 @@ connectPrinter:
 
         ; Drain Rx Fifo
         dec b
-        dec b
         dec b                   ; BC = $133b Tx/Status port
 .drain
         in a, (c)
