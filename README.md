@@ -1,6 +1,10 @@
 # ZXN Wifi Printer Driver
 PoC for a simple wifi printer driver that enables direct printing to most modern printers from your ZX Spectrum Next.
 
+See the [wiki](https://github.com/taylorza/zxn-wifiprn/wiki) for a list of printers that have been tested as well as more detailed information on the installation procedure. 
+
+Don't have a wifi printer? All is not lost, you can run [WinPrinterServer](https://github.com/taylorza/WinPrintServer/releases) on a Windows machine that has a printer configured and make that printer available over the network using your machine to proxy the requests.
+
 ## Assembling
 
 To assemble the sample application use the following `sjasmplus` command line
