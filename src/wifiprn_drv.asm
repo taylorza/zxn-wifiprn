@@ -49,6 +49,8 @@ im1_entry:
         
 ;-- Teardown state handlers --                  
 .endJob
+        xor a
+        ld (charCount), a           ; Reset the character counter
         ld a, FORMFEED
         call uartSend
         ld a, STATE_ENDPRINT         
@@ -125,16 +127,27 @@ output_char:
         
         ld a, e                 ; Get char to send in A
 .sendChar
-        call uartSend           ; Send char
-        cp 13                   ; Check for carriage return
-        jr z, .sendLF           ; If so, setup to send LF
+        cp CR                   ; Check for carriage return
+        jr z, .sendCRLF         ;   if CR send CRLF        
+        call uartSend           ; else Send char
+
+        ld hl, charCount        
+        inc (hl)                ; Increment line char count
+        ld a, (hl)
+        cp 80                   ; If we print the 80th character
+        jr z, .sendCRLF         ;   send a carriage return
+
+.sendDone
         xor a                   ; else clear CY
         ret                     ; and return
-
-.sendLF
-        ld a, 10                ; Put LF in A
-        jr .sendChar            ; Go back and wait for the printer to be ready
-
+.sendCRLF
+        ld a, CR
+        call uartSend
+        ld a, LF                
+        call uartSend 
+        xor a
+        ld (charCount), a
+        jr .sendDone
 ;------------------------------------------------------------------------------
 ; Call ID - $f7
 get_output_status:  
@@ -236,7 +249,9 @@ sendCommand:
         call uartSendZ        
         ld hl, CRLF
         call uartSendZ
-
+;            |
+;            | Fallthrough to parseResponse
+;            V
 ;------------------------------------------------------------------------------
 ; Response Parser - reads the response from ESP
 ; Result:
@@ -349,6 +364,7 @@ LF                      equ $0a
 
 FORMFEED                equ $0c
 
+charCount               db 0
 CRLF                    db CR, LF | $80
 ATE0                    db 'ATE', '0' | $80
 PRE_ATCIP               db 'AT+CI', 'P' | $80

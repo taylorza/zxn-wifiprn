@@ -16,6 +16,7 @@
                 "--lst=wifiprn.lst"
             ],
             "problemMatcher": {
+                "owner": "wifiprn",
                 "fileLocation": [
                     "relative",
                     "${workspaceRoot}"
@@ -46,7 +47,7 @@
         {
             "label": "Launch CSpect",
             "type": "shell",
-            "command": "d:/temp/nextdev/emulator/cspect -r -w2 -brk -zxnext -nextrom -mmc=d:/temp/nextdev/sdcard/tbblue-dev.sd",
+            "command": "d:/temp/nextdev/emulator/cspect -esc -r -w2 -brk -zxnext -nextrom -mmc=d:/temp/nextdev/sdcard/tbblue-dev.sd",
             "dependsOrder": "sequence",
             "dependsOn": [],
             "problemMatcher": []
