@@ -27,18 +27,18 @@ BASE_ADDRESS equ $8000
 entry: 
         jp api ; 3 byte jump to place IM1 routine is at address $0003
 im1_entry:
+        di
         ld a, (printState)          ; Get current state
         or a                        ; If STATE_IDLE    
         ret z                       ;   exit early
-
-        di                                                                               
+                                                                              
         ld a, (activityCounter)     ; Get the current activity counter
         cp STATE_TRANSITION_DELAY   ; Is it time to transition to next state
-        jr nc, .tearDownFSM         ;   if so, tick the state machine  
+        jr z, .tearDownFSM          ;   if so, tick the state machine  
                                     ; Else
         inc a                       ;   increment the counter
         ld (activityCounter), a     
-        jr .exit                    
+        ret              
 
 .tearDownFSM
         ld hl, .stateTbl            ; HL = Base of state table
@@ -134,7 +134,7 @@ output_char:
         ld hl, charCount        
         inc (hl)                ; Increment line char count
         ld a, (hl)
-        cp 80                   ; If we print the 80th character
+        cp 76                   ; If we print the 76th character
         jr z, .sendCRLF         ;   send a carriage return
 
 .sendDone
@@ -210,6 +210,9 @@ connectPrinter:
         jr .drain
 
 .connect
+        ld hl, CMD_ENDPASSTHROUGH
+        call uartSendZ
+        
         ld hl, ATE0
         call sendCommand
 
