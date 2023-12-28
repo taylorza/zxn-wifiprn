@@ -92,6 +92,9 @@ im1_entry:
 
 api:
         ld a, b
+
+        cp FN_SETMAXLINELEN     ; Set the max line length
+        jr z, set_maxlinelen
         
         cp $fb                  ; Output character
         jr z, output_char       
@@ -109,6 +112,21 @@ api_error
         xor a                   ; A=0 unsupported call id
         scf                     ; CY=1 indicates and error
         ret
+
+;-----------------------------------------------------------------------------
+; Call ID - 1 (FN_SETMAXLINELEN)
+;       DE - Characters per column
+set_maxlinelen:
+        ld a, d
+        or a
+        jr nz, api_error        ; if high byte is not zero then error out
+        ld a, e                 ; get low byte
+        or a
+        jr z, api_error         ; do not allow 0 char count
+
+        ld (maxLineLen), a       ; else set the char count for the driver
+        xor a                   ; clear CY
+        ret                     ; and return 
 
 ;-----------------------------------------------------------------------------
 ; Call ID - $fb
@@ -131,13 +149,14 @@ output_char:
         jr z, .sendCRLF         ;   if CR send CRLF        
         call uartSend           ; else Send char
 
-        ld hl, charCount        
-        inc (hl)                ; Increment line char count
-        ld a, (hl)
-        cp 76                   ; If we print the 76th character
+        ld hl, maxLineLen     ; get the max chars per line
+        ld a, (charCount)        
+        inc a                   ; Increment line char count
+        cp (hl)                 ; If we have reached the max line length
         jr z, .sendCRLF         ;   send a carriage return
-
+        
 .sendDone
+        ld (charCount), a       ; Update line char count (reset in .sendCRLF)
         xor a                   ; else clear CY
         ret                     ; and return
 .sendCRLF
@@ -145,9 +164,9 @@ output_char:
         call uartSend
         ld a, LF                
         call uartSend 
-        xor a
-        ld (charCount), a
+        xor a                   ; Zero the A for char count update in .sendDone
         jr .sendDone
+
 ;------------------------------------------------------------------------------
 ; Call ID - $f7
 get_output_status:  
@@ -364,7 +383,6 @@ uartRead:
 
 CR                      equ $0d
 LF                      equ $0a
-
 FORMFEED                equ $0c
 
 charCount               db 0
@@ -379,11 +397,16 @@ CMD_SEND                db 'SEN', 'D' | $80
 CMD_ENDPASSTHROUGH      db '++', '+' | $80
 
 activityCounter         db 0
+maxLineLen              db 76
 printState              db STATE_IDLE
 
 printerIP               ds 15, $fe
         
         RELOCATE_END
+
+;------------------------------------------------------------------------------
+; Driver functions
+FN_SETMAXLINELEN         EQU 1
 
 ;------------------------------------------------------------------------------
 ; Print Job teardown state constants
