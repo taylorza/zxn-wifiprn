@@ -95,6 +95,9 @@ api:
 
         cp FN_SETMAXLINELEN     ; Set the max line length
         jr z, set_maxlinelen
+
+        cp FN_SETDISABLECRLF    ; Set disable CR LF translation
+        jr z, set_disablecrlf
         
         cp $fb                  ; Output character
         jr z, output_char       
@@ -120,11 +123,20 @@ set_maxlinelen:
         ld a, d
         or a
         jr nz, api_error        ; if high byte is not zero then error out
-        ld a, e                 ; get low byte
-        or a
+        or e                    ; get low byte (A is 0 if we got here)
         jr z, api_error         ; do not allow 0 char count
 
         ld (maxLineLen), a       ; else set the char count for the driver
+        xor a                   ; clear CY
+        ret                     ; and return 
+
+;-----------------------------------------------------------------------------
+; Call ID - 2 (FN_SETDISABLECRLF)
+;      DE - !0 - disable CRLF
+set_disablecrlf:
+        ld a, d
+        or e
+        ld (disableCRLF), a
         xor a                   ; clear CY
         ret                     ; and return 
 
@@ -149,23 +161,29 @@ output_char:
         jr z, .sendCRLF         ;   if CR send CRLF        
         call uartSend           ; else Send char
 
-        ld hl, maxLineLen     ; get the max chars per line
+        ld hl, maxLineLen       ; get the max chars per line
         ld a, (charCount)        
         inc a                   ; Increment line char count
         cp (hl)                 ; If we have reached the max line length
-        jr z, .sendCRLF         ;   send a carriage return
+        jr nz, .sendDone        ;   send a carriage return
         
+.sendCRLF
+        ld a, CR
+        call uartSend
+     
+        ld a, (disableCRLF)
+        or a
+        jr nz, .noLF
+     
+        ld a, LF                
+        call uartSend
+.noLF        
+        xor a                   ; Zero the A for char count update in .sendDone
+
 .sendDone
         ld (charCount), a       ; Update line char count (reset in .sendCRLF)
         xor a                   ; else clear CY
         ret                     ; and return
-.sendCRLF
-        ld a, CR
-        call uartSend
-        ld a, LF                
-        call uartSend 
-        xor a                   ; Zero the A for char count update in .sendDone
-        jr .sendDone
 
 ;------------------------------------------------------------------------------
 ; Call ID - $f7
@@ -197,9 +215,12 @@ open_channel:
 ;------------------------------------------------------------------------------
 ; Call ID - $fa
 close_channel:
+        nextreg 2, $80
+        nextreg 2, $00
         ld hl, printerIP
         ld (hl), $80            ; Invalidate the IP address
         xor a                   ; A=0, CY=0 for no error
+        ld (printState), a
         ret
 
 ;------------------------------------------------------------------------------
@@ -302,50 +323,33 @@ parseResponse:
         ;CurrentIs 'F', .parseFAIL       ; Possibly 'FAIL' (excluded to save space see note below)
         jr parseResponse
 
-.parseOK    ; Follow set for 'OK'
-        NextIsNot 'K', parseResponse    
-        NextIsNot CR, parseResponse
-        call .readToLF
-        xor a
-        ret
+.parseOK
+        ld hl, RESP_OK
+        jr .rest
 
-.parseERROR ; Follow set for 'ERROR'
-        NextIsNot 'R', parseResponse
-        NextIsNot 'R', parseResponse
-        NextIsNot 'O', parseResponse
-        NextIsNot 'R', parseResponse
-        NextIsNot CR, parseResponse
-;        jr .error
-;
-;.parseFAIL  ; Follow set for 'FAIL'    ; Non of the commands used result in FAIL,
-;        NextIsNot 'A', parseResponse   ; so I can save some space by not checking this
-;        NextIsNot 'I', parseResponse
-;        NextIsNot 'L', parseResponse
-;        NextIsNot CR, parseResponse
-;            |
-;            | Fallthrough to .error
-;            V
+.parseERROR
+        ld hl, RESP_ERROR
+        call .rest
+
 .error
         call .readToLF          ; Read the rest of the response
         scf
+        ret
+
+.rest
+        call uartRead
+        cp (hl)
+        inc hl
+        jr nz, .error
+        cp CR
+        jr nz, .rest
+        xor a
         ret
 
 .readToLF
         call uartRead
         cp LF
         jr nz, .readToLF
-        ret
-
-;------------------------------------------------------------------------------
-; .readAndCompare - Read a character from the UART and compare with the byte
-;                 - immediately following the call to this function
-.readAndCompare:
-        call uartRead
-        pop hl          ; Return address contains byte to compare
-        ld b, (hl)
-        cp b            
-        inc hl          ; Move past the byte
-        push hl         ; And push as new return address
         ret
         
 uartSendZ:
@@ -396,9 +400,13 @@ CMD_PASSTHROUGH         db 'MODE=', '1' | $80
 CMD_SEND                db 'SEN', 'D' | $80
 CMD_ENDPASSTHROUGH      db '++', '+' | $80
 
+RESP_OK    db 'K', CR
+RESP_ERROR db 'RROR', CR
+
 activityCounter         db 0
 maxLineLen              db 76
 printState              db STATE_IDLE
+disableCRLF             db 0
 
 printerIP               ds 15, $fe
         
@@ -407,6 +415,7 @@ printerIP               ds 15, $fe
 ;------------------------------------------------------------------------------
 ; Driver functions
 FN_SETMAXLINELEN         EQU 1
+FN_SETDISABLECRLF           EQU 2
 
 ;------------------------------------------------------------------------------
 ; Print Job teardown state constants
@@ -419,6 +428,7 @@ STATE_DISCONNECT        equ 3
 STATE_ERROR             equ 4
 
 ; Pad driver to 512
+        DISPLAY "Length: ", /d,$
         ASSERT $ <= 512, Driver image exceeds 512 bytes
         ds 512-$, 0
 
